@@ -10,7 +10,7 @@ const cookieParser = require("cookie-parser")
 const app = express()
 
 // Uncaught exception error shuts down server here
-process.on("uncaughtException", err => {
+process.on("uncaughtException", (err) => {
   console.log(`Error: ${err.stack}`)
   console.log("Shutting down the server due to uncaught exception.")
   process.exit(1)
@@ -35,18 +35,18 @@ router.route("/CreateTask").post(CreateTask)
 router.route("/GetTaskByState").post(GetTaskByState)
 router.route("/PromoteTask2Done").post(PromoteTask2Done)
 
-// Error-handling
-app.use((err, req, res, next) => {
-  console.error(err)
-  return res.json({
-    code: "T701"
-  })
-})
+// // Error-handling
+// app.use((err, req, res, next) => {
+//   console.error(err)
+//   return res.json({
+//     code: "T701"
+//   })
+// })
 
 // use router
 app.use(router)
 
-// Route not found catch
+// 1. Route not found catch
 app.all("*", (req, res) => {
   res.json({
     code: "AS200"
@@ -59,7 +59,7 @@ const server = app.listen(port, () => {
 })
 
 // Unhandled promise rejection error
-process.on("unhandledRejection", err => {
+process.on("unhandledRejection", (err) => {
   console.log(`Error: ${err.message}`)
   console.log("Shutting down the server due to unhandled promise rejection.")
   server.close(() => {
