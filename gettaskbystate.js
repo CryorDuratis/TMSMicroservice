@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs")
 dotenv.config({ path: "./config/config.env" })
 
 // 1. endpoint exist checked in app.js
+// 2. endpoint includes special characters checked in app.js
 
 exports.GetTaskByState = async (req, res) => {
   try {
@@ -26,6 +27,7 @@ exports.GetTaskByState = async (req, res) => {
 
     // 3. mandatory fields present
     if (!username || !password || !task_app_acronym || !task_state) {
+      console.log("error code 3")
       return res.json({
         code: "PS300"
       })
@@ -33,6 +35,7 @@ exports.GetTaskByState = async (req, res) => {
 
     // 4. valid data types
     if (typeof username !== "string" || typeof password !== "string" || typeof task_app_acronym !== "string" || typeof task_state !== "string") {
+      console.log("error code 4")
       return res.json({
         code: "PS301"
       })
@@ -41,8 +44,9 @@ exports.GetTaskByState = async (req, res) => {
     // 5. valid user credentials
     var querystr = "SELECT * FROM users WHERE `username` = ?" //case insensitive
     var values = [username]
-    var result = promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 5")
       console.log("no user found")
       return res.json({
         code: "A400"
@@ -52,6 +56,7 @@ exports.GetTaskByState = async (req, res) => {
     const user = result[0]
     const isMatched = await bcrypt.compare(password, user.password) // case sensitive
     if (!isMatched) {
+      console.log("error code 5")
       console.log("password wrong")
       return res.json({
         code: "A400"
@@ -60,6 +65,7 @@ exports.GetTaskByState = async (req, res) => {
 
     // 6. active user
     if (user.isactive != 1) {
+      console.log("error code 6")
       return res.json({
         code: "A401"
       })
@@ -68,8 +74,9 @@ exports.GetTaskByState = async (req, res) => {
     // 7. app exists
     querystr = `SELECT App_Rnumber,App_permit_Create FROM application WHERE App_Acronym = ?`
     values = [task_app_acronym]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 7")
       return res.json({
         code: "D500"
       })
@@ -93,6 +100,7 @@ exports.GetTaskByState = async (req, res) => {
         task_state = "Closed"
         break
       default:
+        console.log("error code 9")
         return res.json({
           code: "D502"
         })
@@ -101,9 +109,10 @@ exports.GetTaskByState = async (req, res) => {
     // get all tasks in a specified state=============================
     querystr = "SELECT * FROM task WHERE `Task_app_Acronym` = ? AND `Task_state` = ?"
     values = [task_app_acronym, task_state]
-    const data = await promisePool.query(querystr, values)
+    const [data] = await promisePool.query(querystr, values)
 
     // success========================================================
+    console.log("success code")
     return res.json({
       code: "S100",
       data
@@ -111,6 +120,7 @@ exports.GetTaskByState = async (req, res) => {
   } catch (e) {
     console.log(e)
     // 12. catch other errors
+    console.log("error code 12")
     // async error
     return res.json({
       code: "T701"

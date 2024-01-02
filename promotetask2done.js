@@ -2,6 +2,7 @@
 const mysql = require("mysql2")
 const dotenv = require("dotenv")
 const bcrypt = require("bcryptjs")
+const sendEmail = require("./sendEmail")
 // dotenv set up
 dotenv.config({ path: "./config/config.env" })
 
@@ -27,6 +28,7 @@ exports.PromoteTask2Done = async (req, res) => {
 
     // 3. mandatory fields present
     if (!username || !password || !task_app_acronym || !task_id) {
+      console.log("error code 3")
       return res.json({
         code: "PS300"
       })
@@ -34,6 +36,7 @@ exports.PromoteTask2Done = async (req, res) => {
 
     // 4. valid data types
     if (typeof username !== "string" || typeof password !== "string" || typeof task_app_acronym !== "string" || typeof task_id !== "string" || typeof new_notes !== "string") {
+      console.log("error code 4")
       return res.json({
         code: "PS301"
       })
@@ -42,8 +45,9 @@ exports.PromoteTask2Done = async (req, res) => {
     // 5. valid user credentials
     var querystr = "SELECT * FROM users WHERE `username` = ?" //case insensitive
     var values = [username]
-    var result = promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 5")
       console.log("no user found")
       return res.json({
         code: "A400"
@@ -53,6 +57,7 @@ exports.PromoteTask2Done = async (req, res) => {
     const user = result[0]
     const isMatched = await bcrypt.compare(password, user.password) // case sensitive
     if (!isMatched) {
+      console.log("error code 5")
       console.log("password wrong")
       return res.json({
         code: "A400"
@@ -61,6 +66,7 @@ exports.PromoteTask2Done = async (req, res) => {
 
     // 6. active user
     if (user.isactive != 1) {
+      console.log("error code 6")
       return res.json({
         code: "A401"
       })
@@ -69,8 +75,9 @@ exports.PromoteTask2Done = async (req, res) => {
     // 7. app exists
     querystr = `SELECT App_Rnumber,App_permit_Doing FROM application WHERE App_Acronym = ?`
     values = [task_app_acronym]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 7")
       return res.json({
         code: "D500"
       })
@@ -80,8 +87,9 @@ exports.PromoteTask2Done = async (req, res) => {
     // 8. task exists
     querystr = "SELECT * FROM task WHERE Task_id = ?"
     values = [task_id]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 8")
       return res.json({
         code: "D501"
       })
@@ -90,6 +98,7 @@ exports.PromoteTask2Done = async (req, res) => {
 
     // 9. correct task state input
     if (task.Task_state !== "Doing") {
+      console.log("error code 9")
       return res.json({
         code: "D502"
       })
@@ -98,8 +107,9 @@ exports.PromoteTask2Done = async (req, res) => {
     // 10. permitted user
     querystr = `SELECT role FROM users WHERE username = ? AND role LIKE ?`
     values = [username, `%${app.App_permit_Doing}%`]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 10")
       return res.json({
         code: "AM600"
       })
@@ -114,7 +124,7 @@ exports.PromoteTask2Done = async (req, res) => {
     // get old task info, maybe dunnid query
     querystr = "SELECT * FROM task WHERE Task_id = ?"
     values = [task_id]
-    result = await executeQuery(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     const oldNote = result[0].Task_notes
 
     // promote msg
@@ -124,8 +134,9 @@ exports.PromoteTask2Done = async (req, res) => {
     const newNote = stamp + promotemsg + newMsg + oldNote
 
     // update database
-    querystr = `UPDATE task SET Task_notes = ?, Task_state =?, Task_owner = ? WHERE Task_id = ?`
-    values = [newNote, "Done", user, task_id]
+    querystr = `UPDATE task SET Task_notes = ?, Task_state = ?, Task_owner = ? WHERE Task_id = ?`
+    values = [newNote, "Done", user.username, task_id]
+    await promisePool.query(querystr, values)
 
     // send email
     const applink = `http://localhost:3000/apps/${task_app_acronym}`
@@ -229,13 +240,14 @@ exports.PromoteTask2Done = async (req, res) => {
       })
 
     // success=========================================================
+    console.log("success code")
     return res.json({
-      code: "S100",
-      data
+      code: "S100"
     })
   } catch (e) {
     console.log(e)
     // 12. catch other errors
+    console.log("error code 12")
     // async error
     return res.json({
       code: "T701"

@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs")
 dotenv.config({ path: "./config/config.env" })
 
 // 1. endpoint exist checked in app.js
+// 2. endpoint includes special characters checked in app.js
 
 exports.CreateTask = async (req, res) => {
   try {
@@ -26,6 +27,7 @@ exports.CreateTask = async (req, res) => {
 
     // 3. mandatory fields present
     if (!username || !password || !app_acronym || !task_name) {
+      console.log("error code 3")
       return res.json({
         code: "PS300"
       })
@@ -33,6 +35,7 @@ exports.CreateTask = async (req, res) => {
 
     // 4. valid data types
     if (typeof username !== "string" || typeof password !== "string" || typeof app_acronym !== "string" || typeof task_name !== "string" || typeof task_description !== "string") {
+      console.log("error code 4")
       return res.json({
         code: "PS301"
       })
@@ -41,8 +44,9 @@ exports.CreateTask = async (req, res) => {
     // 5. valid user credentials
     var querystr = "SELECT * FROM users WHERE `username` = ?" // case insensitive
     var values = [username]
-    var result = promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 5")
       console.log("no user found")
       return res.json({
         code: "A400"
@@ -52,6 +56,7 @@ exports.CreateTask = async (req, res) => {
     const user = result[0]
     const isMatched = await bcrypt.compare(password, user.password) // case sensitive
     if (!isMatched) {
+      console.log("error code 5")
       console.log("password wrong")
       return res.json({
         code: "A400"
@@ -60,6 +65,7 @@ exports.CreateTask = async (req, res) => {
 
     // 6. active user
     if (user.isactive != 1) {
+      console.log("error code 6")
       return res.json({
         code: "A401"
       })
@@ -68,8 +74,9 @@ exports.CreateTask = async (req, res) => {
     // 7. app exists
     querystr = `SELECT App_Rnumber,App_permit_Create FROM application WHERE App_Acronym = ?`
     values = [app_acronym]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 7")
       return res.json({
         code: "D500"
       })
@@ -81,8 +88,9 @@ exports.CreateTask = async (req, res) => {
     // 10. permitted user
     querystr = `SELECT role FROM users WHERE username = ? AND role LIKE ?`
     values = [username, `%${app.App_permit_Create}%`]
-    result = await promisePool.query(querystr, values)
+    var [result] = await promisePool.query(querystr, values)
     if (result.length < 1) {
+      console.log("error code 10")
       return res.json({
         code: "AM600"
       })
@@ -91,7 +99,7 @@ exports.CreateTask = async (req, res) => {
     // get current timestamp=========================================
     const timestamp = new Date()
 
-    const stamp = `[${timestamp.toISOString()}] ${user} (Open): `
+    const stamp = `[${timestamp.toISOString()}] ${user.username} (Open): `
     const createMsg = `Task created.`
 
     // concat
@@ -102,7 +110,7 @@ exports.CreateTask = async (req, res) => {
 
     // insert
     querystr = "INSERT INTO task (`Task_name`,`Task_description`,`Task_id`,`Task_app_Acronym`,`Task_creator`,`Task_owner`,`Task_state`,`Task_createDate`,`Task_notes`) VALUES (?,?,?,?,?,?,'Open',?,?)"
-    values = [task_name, task_description, Task_id, app_acronym, user, user, currentdate, newNote]
+    values = [task_name, task_description, Task_id, app_acronym, user.username, user.username, currentdate, newNote]
     await promisePool.query(querystr, values)
 
     // increment app rnumber
@@ -111,6 +119,7 @@ exports.CreateTask = async (req, res) => {
     await promisePool.query(querystr, values)
 
     // success======================================================
+    console.log("success code")
     return res.json({
       code: "S100",
       task_id: Task_id
@@ -119,11 +128,14 @@ exports.CreateTask = async (req, res) => {
     console.log(e)
     // 11. sql check
     if (e.code === "ER_DATA_OUT_OF_RANGE" || e.code === "ER_DATA_TOO_LONG") {
+      console.log("error code 11")
       return res.json({
         code: "T700"
       })
     }
     // 12. catch other errors
+    console.log("error code 12")
+    // syntax error
     // async error
     return res.json({
       code: "T701"
